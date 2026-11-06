@@ -1,0 +1,8 @@
+{
+  "name": "olive-leaf-portal",
+  "version": "1.0.0",
+  "description": "The decrypt code behind an Olive Leaf delivery link, plus a standalone tool",
+  "license": "MIT",
+  "type": "module",
+  "scripts": { "test": "node test.mjs" }
+}
