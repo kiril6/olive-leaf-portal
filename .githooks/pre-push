@@ -1,0 +1,11 @@
+#!/bin/sh
+# Only push to the personal GitHub account, and only commits authored with the noreply identity.
+remote_url="$2"
+case "$remote_url" in https://github.com/kiril6/*|git@github.com:kiril6/*) ;; *) echo "pre-push: remote '$remote_url' is not under kiril6" >&2; exit 1;; esac
+while read -r _ local_sha remote_ref _; do
+  case "$remote_ref" in refs/heads/main|refs/heads/master) echo "pre-push: never push directly to main. Use a branch and a pull request (gh pr create, then gh pr merge)." >&2; exit 1;; esac
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+  bad=$(git log --format='%h %ae %ce' "$local_sha" | grep -v 'noreply.github.com.*noreply.github.com' | head -3)
+  [ -n "$bad" ] && { echo "pre-push: commits with a non-noreply identity:" >&2; echo "$bad" >&2; exit 1; }
+done
+exit 0

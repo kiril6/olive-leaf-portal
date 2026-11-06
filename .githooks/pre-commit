@@ -1,0 +1,19 @@
+#!/bin/sh
+# Blocks commits that would leak secrets or a non-personal identity. Enable: git config core.hooksPath .githooks
+fail() { echo "pre-commit: $1" >&2; exit 1; }
+
+branch=$(git symbolic-ref --short -q HEAD)
+case "$branch" in main|master) fail "never commit directly on $branch; create a branch (git switch -c <topic>) and open a pull request";; esac
+
+email=$(git config user.email)
+case "$email" in *noreply.github.com) ;; *) fail "user.email is '$email' (expected the GitHub noreply address)";; esac
+
+# Secret-ish files by name.
+bad=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)(\.env(\..*)?|\.dev\.vars|.*\.(pem|p12|pfx|jks|keystore|key)|google-services\.json|GoogleService-Info\.plist|id_(rsa|ed25519)|\.npmrc|\.wrangler/.*)$' | grep -v '\.example$')
+[ -n "$bad" ] && fail "secret-looking file staged: $bad"
+
+# Secret-ish or identifying content in added lines.
+hits=$(git diff --cached -U0 --no-color -- . ':!.githooks' | grep -E '^\+' | grep -v '^+++' | grep -nE \
+  'BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk_(live|test)_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{10,}|(CLOUDFLARE|CF)_API_TOKEN *[=:]|AWS_SECRET_ACCESS_KEY *[=:]|RESEND_API_KEY *[=:]|re_[A-Za-z0-9]{20,}|serrala|alevate|k\.delovski@|delovski\.office|@gmail\.com')
+[ -n "$hits" ] && { echo "$hits" | cut -c1-160 >&2; fail "possible secret or personal / work identifier in staged changes (see lines above)"; }
+exit 0
